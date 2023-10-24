@@ -45,6 +45,8 @@ class GenerateParams(BaseModel):
     control_guidance_start: float = 0.0
     control_guidance_end: float = 1.0
     seed: Optional[int] = None
+    width: int = 512
+    height: int = 512
 
 
 class GenerateRequest(BaseModel):
@@ -57,12 +59,12 @@ async def generate(request: GenerateRequest):
     start = time.perf_counter()
     url = request.url
     params = request.params
-    qr = get_qr_control_image(url)
+    qr = get_qr_control_image(url, size=params.width)
     qr_gen = time.perf_counter() - start
-    config = params.dict()
+    config = params.model_dump()
     if "seed" in config and config["seed"] is not None:
         config["generator"] = torch.Generator("cuda").manual_seed(config["seed"])
-        del config["seed"]
+    del config["seed"]
     config["image"] = qr
     image = pipe(**config).images[0]
     image_gen = time.perf_counter() - start - qr_gen
@@ -79,6 +81,19 @@ async def generate(request: GenerateRequest):
             "X-QR-Generation-Time": str(qr_gen),
             "X-Image-Generation-Time": str(image_gen),
         },
+    )
+
+
+# use like get /qr?url=something. returns an image
+@app.get("/qr")
+async def get_qr(url: str, size: int = 512):
+    qr = get_qr_control_image(url, size=size)
+    qr_bytes = io.BytesIO()
+    qr.save(qr_bytes, format="png")
+    qr_bytes.seek(0)
+    return StreamingResponse(
+        qr_bytes,
+        media_type="image/png",
     )
 
 

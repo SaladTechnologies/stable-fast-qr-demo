@@ -18,6 +18,8 @@ from sfast.compilers.stable_diffusion_pipeline_compiler import (
     CompilationConfig,
 )
 import qrcode
+from qrcode.image.styledpil import StyledPilImage
+from qrcode.image.styles.moduledrawers.pil import RoundedModuleDrawer
 
 torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -75,7 +77,7 @@ def get_git_repo_url():
         return "https://salad.com/"
 
 
-def get_qr_control_image(url):
+def get_qr_control_image(url, size=512):
     qr = qrcode.QRCode(
         version=7.4,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -84,8 +86,13 @@ def get_qr_control_image(url):
     )
     qr.add_data(url)
     qr.make(fit=True)
-    img = qr.make_image(fill_color=(0, 0, 0), back_color=(128, 128, 128))
-    return img.resize((512, 512))
+    img = qr.make_image(
+        image_factory=StyledPilImage,
+        module_drawer=RoundedModuleDrawer(),
+        fill_color=(0, 0, 0),
+        back_color=(128, 128, 128),
+    )
+    return img.resize((size, size))
 
 
 my_repository_url = get_git_repo_url()
@@ -223,15 +230,11 @@ def load_controlnet_pipeline(
     pipeline.controlnet.eval()
     pipeline = compile(pipeline, compile_config)
 
-    output_image = pipeline(**warmup_config).images[0]
+    pipeline(**warmup_config).images[0]
     print(
         f"Compiled controlnet pipeline in {time.perf_counter() - start} seconds",
         flush=True,
     )
-    with open(os.path.join(output_dir, "warmup.png"), "wb") as f:
-        output_image.save(f, format="png")
-        print(f"Wrote warmup image to {os.path.join(output_dir, 'warmup.png')}")
-
     return pipeline
 
 
