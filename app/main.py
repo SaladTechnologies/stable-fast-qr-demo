@@ -5,14 +5,18 @@ start = time.perf_counter()
 import torch
 from model import load, get_qr_control_image
 import os
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import StreamingResponse
+from starlette.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 from typing import Optional
 import uvicorn
 import io
 
+gpu_name = torch.cuda.get_device_name(0)
+vram = torch.cuda.get_device_properties(0).total_memory
+print(f"Using GPU {gpu_name} with {vram} VRAM", flush=True)
 
 pipe = load()
 print(f"Total startup time: {time.perf_counter() - start}s", flush=True)
@@ -39,6 +43,7 @@ async def health_check():
 
 class GenerateParams(BaseModel):
     prompt: str
+    negative_prompt: Optional[str] = None
     num_inference_steps: int = 50
     controlnet_conditioning_scale: float = 1.0
     guidance_scale: float = 7.5
@@ -80,6 +85,8 @@ async def generate(request: GenerateRequest):
             "X-Total-Time": str(total_time),
             "X-QR-Generation-Time": str(qr_gen),
             "X-Image-Generation-Time": str(image_gen),
+            "X-GPU-Name": gpu_name,
+            "X-VRAM": str(vram),
         },
     )
 
@@ -95,6 +102,14 @@ async def get_qr(url: str, size: int = 512):
         qr_bytes,
         media_type="image/png",
     )
+
+
+html_path = Path(__file__).parent / "index.html"
+
+
+@app.get("/")
+def serve_index():
+    return FileResponse(html_path, media_type="text/html")
 
 
 if __name__ == "__main__":

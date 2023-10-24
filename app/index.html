@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generate Fancy QR Code</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 40px;
+    }
+
+    form {
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input[type="text"],
+    input[type="range"] {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    input[type="submit"] {
+      background-color: #4CAF50;
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    input[type="submit"]:hover {
+      background-color: #45a049;
+    }
+
+    #spinner {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    #resultImage {
+      display: none;
+      margin-top: 20px;
+      max-width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    #metadata {
+      display: none;
+      background-color: #ffffff;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    #metadata h2 {
+      margin-top: 0;
+    }
+
+    #metadata p {
+      margin: 5px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Page Title -->
+  <h1>Fancy QR Code Generator</h1>
+
+  <!-- Page Description -->
+  <p>
+    Welcome to the Fancy QR Code Generator. Adjust the parameters below to generate a unique artistic QR code tailored
+    to your
+    preferences. Once you're ready, click the "Generate Image" button to see your creation!
+  </p>
+
+  <form id="generateForm">
+    <!-- GenerateRequest fields -->
+    <label for="url">Data to encode (usually a URL):</label>
+    <input type="text" id="url" name="url" required><br><br>
+
+    <!-- GenerateParams fields -->
+    <label for="prompt">Prompt:</label>
+    <input type="text" id="prompt" name="prompt" required><br><br>
+
+    <label for="prompt">Negative Prompt:</label>
+    <input type="text" id="negative_prompt" name="negative_prompt"><br><br>
+
+    <label for="num_inference_steps">Number of Inference Steps (10-100):</label>
+    <input type="range" id="num_inference_steps" name="num_inference_steps" min="10" max="100" value="15">
+    <span id="num_inference_steps_display">15</span><br><br>
+
+    <label for="controlnet_conditioning_scale">Controlnet Conditioning Scale (0.1-10):</label>
+    <input type="range" step="0.05" id="controlnet_conditioning_scale" name="controlnet_conditioning_scale" min="0"
+      max="2.0" value="1.7">
+    <span id="controlnet_conditioning_scale_display">1.7</span><br><br>
+
+    <label for="guidance_scale">Guidance Scale (1-15):</label>
+    <input type="range" step="0.1" id="guidance_scale" name="guidance_scale" min="1" max="15" value="4.0">
+    <span id="guidance_scale_display">4.0</span><br><br>
+
+    <label for="width">Width (128-1024):</label>
+    <input type="range" id="width" name="width" min="128" max="1024" value="512" , step="16">
+    <span id="width_display">512</span><br><br>
+
+    <label for="height">Height (128-1024):</label>
+    <input type="range" id="height" name="height" min="128" max="1024" value="512" , step="16">
+    <span id="height_display">512</span><br><br>
+
+    <input type="submit" value="Generate Image">
+  </form>
+  <div id="spinner">Generating image...</div>
+  <img id="resultImage" alt="Generated Image" style="margin-top: 20px;">
+  <div id="metadata">
+    <h2>Image Metadata</h2>
+    <p id="gpu_name"></p>
+    <p id="vram"></p>
+    <p id="totalTime"></p>
+    <p id="qrGenerationTime"></p>
+    <p id="imageGenerationTime"></p>
+  </div>
+
+  <script>
+    const updateValue = (id) => {
+      const rangeElement = document.getElementById(id);
+      const displayElement = document.getElementById(id + "_display");
+      rangeElement.addEventListener('input', () => {
+        displayElement.innerText = rangeElement.value;
+      });
+    };
+
+    updateValue("num_inference_steps");
+    updateValue("controlnet_conditioning_scale");
+    updateValue("guidance_scale");
+    updateValue("width");
+    updateValue("height");
+
+    document.getElementById('generateForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      // Show the spinner and hide the image while loading
+      document.getElementById('spinner').style.display = 'block';
+      document.getElementById('resultImage').style.display = 'none';
+      document.getElementById('metadata').style.display = 'none';
+
+      // Construct the GenerateParams object
+      let params = {
+        prompt: e.target.prompt.value,
+        negative_prompt: e.target.negative_prompt.value,
+        num_inference_steps: parseInt(e.target.num_inference_steps.value),
+        controlnet_conditioning_scale: parseFloat(e.target.controlnet_conditioning_scale.value),
+        guidance_scale: parseFloat(e.target.guidance_scale.value),
+        width: parseInt(e.target.width.value),
+        height: parseInt(e.target.height.value)
+      };
+
+      // Construct the GenerateRequest object
+      let requestData = {
+        url: e.target.url.value,
+        params: params
+      };
+
+      // Send the POST request
+      fetch('/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      })
+        .then(response => {
+          // Extract headers and display them
+          let totalTime = response.headers.get('X-Total-Time');
+          let qrGenTime = response.headers.get('X-QR-Generation-Time');
+          let imgGenTime = response.headers.get('X-Image-Generation-Time');
+
+          document.getElementById('totalTime').textContent = 'Total Time: ' + response.headers.get("X-Total-Time") + ' seconds';
+          document.getElementById('qrGenerationTime').textContent = 'QR Generation Time: ' + response.headers.get("X-QR-Generation-Time") + ' seconds';
+          document.getElementById('imageGenerationTime').textContent = 'Image Generation Time: ' + response.headers.get("X-Image-Generation-Time") + ' seconds';
+          document.getElementById('gpu_name').textContent = 'GPU Name: ' + response.headers.get("X-GPU-Name");
+          // vram comes back in bytes, convert to GB, round to 2 decimal places
+          document.getElementById('vram').textContent = 'VRAM: ' + (response.headers.get("X-VRAM") / 1000000000).toFixed(2) + ' GB';
+          document.getElementById('metadata').style.display = 'block';
+
+          // Return blob to process the image
+          return response.blob();
+        })
+        .then(blob => {
+          // Convert blob to image URL and display it
+          let imageUrl = URL.createObjectURL(blob);
+          document.getElementById('resultImage').src = imageUrl;
+          document.getElementById('spinner').style.display = 'none';
+          document.getElementById('resultImage').style.display = 'block';
+        })
+        .catch(error => console.error('Error:', error));
+    });
+
+  </script>
+
+</body>
+
+</html>
