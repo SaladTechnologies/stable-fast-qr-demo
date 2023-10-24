@@ -1,0 +1,27 @@
+services:
+  stable-diffusion-service:
+    image: saladtechnologies/stable-fast-qr-code
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    ports:
+      - "1111:1111"
+    environment:
+      - HOST=*
+      - PORT=1111
+      - CIVITAI_CONTROLNET_MODEL=122143
+      - CIVITAI_CHECKPOINT_MODEL=128713
+      - URL_DIR=/urls
+      - MODEL_DIR=/models
+      - OUTPUT_DIR=/output
+    volumes:
+      - ./models:/models
+      - ./urls:/urls
+      - ./output:/output
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
