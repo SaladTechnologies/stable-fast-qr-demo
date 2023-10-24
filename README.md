@@ -29,7 +29,7 @@ docker compose up
 
 ```bash
 curl  -X POST \
-  'http://localhost:1111/generate' \
+  'http://localhost:1234/generate' \
   -H 'Content-Type: application/json' \
   --data '{
   "url": "https://github.com/SaladTechnologies/stable-fast-qr-demo",

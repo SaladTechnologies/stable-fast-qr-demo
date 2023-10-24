@@ -5,10 +5,10 @@ services:
       context: ./
       dockerfile: Dockerfile
     ports:
-      - "1111:1111"
+      - "1234:1234"
     environment:
       - HOST=*
-      - PORT=1111
+      - PORT=1234
       - CIVITAI_CONTROLNET_MODEL=122143
       - CIVITAI_CHECKPOINT_MODEL=128713
       - MODEL_DIR=/models
