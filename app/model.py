@@ -79,13 +79,9 @@ def get_git_repo_url():
 
 def get_qr_control_image(url, size=512):
     qr = qrcode.QRCode(
-        version=7.4,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
     )
     qr.add_data(url)
-    qr.make(fit=True)
     img = qr.make_image(
         image_factory=StyledPilImage,
         module_drawer=RoundedModuleDrawer(),

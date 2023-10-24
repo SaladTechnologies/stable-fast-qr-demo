@@ -12,7 +12,6 @@ services:
       - CIVITAI_CONTROLNET_MODEL=122143
       - CIVITAI_CHECKPOINT_MODEL=128713
       - MODEL_DIR=/models
-      - OUTPUT_DIR=/output
     volumes:
       # Mount a local directory to cache model files after they load
       - ./models:/models
