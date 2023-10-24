@@ -17,7 +17,7 @@ import io
 pipe = load()
 print(f"Total startup time: {time.perf_counter() - start}s", flush=True)
 
-host = os.getenv("HOST", "0.0.0.0")
+host = os.getenv("HOST", "*")
 port = os.getenv("PORT", "1234")
 
 port = int(port)

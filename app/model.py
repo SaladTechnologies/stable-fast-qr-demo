@@ -48,14 +48,11 @@ model_dir = os.getenv("MODEL_DIR", "/models")
 controlnet_dir = os.path.join(model_dir, "controlnet")
 checkpoint_dir = os.path.join(model_dir, "checkpoints")
 output_dir = os.getenv("OUTPUT_DIR", "/output")
-civitai_controlnet_model = os.getenv("CIVITAI_CONTROLNET_MODEL", None)
-civitai_checkpoint_model = os.getenv("CIVITAI_CHECKPOINT_MODEL", None)
+# QR Code Monster
+civitai_controlnet_model = os.getenv("CIVITAI_CONTROLNET_MODEL", "122143")
 
-if not civitai_controlnet_model:
-    raise ValueError("CIVITAI_CONTROLNET_MODEL is not set")
-
-if not civitai_checkpoint_model:
-    raise ValueError("CIVITAI_CHECKPOINT_MODEL is not set")
+# Dreamshaper 8
+civitai_checkpoint_model = os.getenv("CIVITAI_CHECKPOINT_MODEL", "128713")
 
 
 # Create the directories

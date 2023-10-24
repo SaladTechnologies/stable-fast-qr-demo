@@ -3,6 +3,16 @@ A demo of using [stable-fast](https://github.com/chengzeyi/stable-fast) to gener
 
 ![](./qr.png)
 
+## Prebuilt Docker Image
+
+```
+saladtechnologies/stable-fast-qr-demo:latest
+```
+
+## Docs
+
+Swagger docs are available at `/docs` when the application is running.
+
 ## Build
 
 ```bash
@@ -41,7 +51,7 @@ This application is configured with environment variables.
 | Variable | Description | Default |
 | --- | --- | --- |
 | `PORT` | The port to listen on | `1234` |
-| `HOST` | The host to listen on | `0.0.0.0` |
+| `HOST` | The host to listen on | `*` |
 | `MODEL_DIR` | The directory to store models in | `./models` |
-| `CIVITAI_CONTROLNET_MODEL` | A model version ID for a controlnet on Civit.ai | None |
-| `CIVITAI_CHECKPOINT_MODEL` | A model version ID for a checkpoint on Civit.ai | None |
+| `CIVITAI_CONTROLNET_MODEL` | A model version ID for a controlnet on Civit.ai | `122143` |
+| `CIVITAI_CHECKPOINT_MODEL` | A model version ID for a checkpoint on Civit.ai | `128713` |
