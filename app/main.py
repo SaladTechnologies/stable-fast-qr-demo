@@ -1,41 +1,86 @@
-from model import load, warmup_config, get_qr_control_image
-import os
-import csv
 import time
 
 start = time.perf_counter()
+
+import torch
+from model import load, get_qr_control_image
+import os
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import StreamingResponse
+from pydantic import BaseModel
+from typing import Optional
+import uvicorn
+import io
+
+
 pipe = load()
 print(f"Total startup time: {time.perf_counter() - start}s", flush=True)
 
-url_dir = os.getenv("URL_DIR", "/urls")
-output_dir = os.getenv("OUTPUT_DIR", "/output")
+host = os.getenv("HOST", "0.0.0.0")
+port = os.getenv("PORT", "1234")
+
+port = int(port)
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-def all_urls_to_run():
-    # Loop through all files in the directory, sorted by filename
-    for filename in sorted(os.listdir(url_dir)):
-        if filename.endswith(".csv"):
-            with open(os.path.join(url_dir, filename), newline="") as csvfile:
-                reader = csv.reader(csvfile, delimiter=",", quotechar="|")
-                for row in reader:
-                    url, prompt, output_filename = row
-                    yield url, prompt, output_filename
+@app.get("/hc")
+async def health_check():
+    return "OK"
+
+
+class GenerateParams(BaseModel):
+    prompt: str
+    num_inference_steps: int = 50
+    controlnet_conditioning_scale: float = 1.0
+    guidance_scale: float = 7.5
+    control_guidance_start: float = 0.0
+    control_guidance_end: float = 1.0
+    seed: Optional[int] = None
+
+
+class GenerateRequest(BaseModel):
+    url: str
+    params: GenerateParams
+
+
+@app.post("/generate")
+async def generate(request: GenerateRequest):
+    start = time.perf_counter()
+    url = request.url
+    params = request.params
+    qr = get_qr_control_image(url)
+    qr_gen = time.perf_counter() - start
+    config = params.dict()
+    if "seed" in config and config["seed"] is not None:
+        config["generator"] = torch.Generator("cuda").manual_seed(config["seed"])
+        del config["seed"]
+    config["image"] = qr
+    image = pipe(**config).images[0]
+    image_gen = time.perf_counter() - start - qr_gen
+    image_bytes = io.BytesIO()
+    image.save(image_bytes, format="png")
+    image_bytes.seek(0)
+    total_time = time.perf_counter() - start
+
+    return StreamingResponse(
+        image_bytes,
+        media_type="image/png",
+        headers={
+            "X-Total-Time": str(total_time),
+            "X-QR-Generation-Time": str(qr_gen),
+            "X-Image-Generation-Time": str(image_gen),
+        },
+    )
 
 
 if __name__ == "__main__":
-    for url, prompt, output_filename in all_urls_to_run():
-        print(f"Running {url} with prompt {prompt} and output file {output_filename}")
-        start = time.perf_counter()
-        qr = get_qr_control_image(url)
-        qr_gen = time.perf_counter() - start
-        config = warmup_config.copy()
-        config["prompt"] = prompt
-        config["image"] = qr
-        image = pipe(**config).images[0]
-        image_gen = time.perf_counter() - start - qr_gen
-        image.save(os.path.join(output_dir, output_filename))
-        total_time = time.perf_counter() - start
-        print(f"Total time: {total_time}")
-        print(f"Base QR generation time: {qr_gen}")
-        print(f"Image generation time: {image_gen}")
-        print(f"Image saving time: {total_time - image_gen - qr_gen}")
+    uvicorn.run(app, host=host, port=port)

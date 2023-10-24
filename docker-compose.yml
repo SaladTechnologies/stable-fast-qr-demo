@@ -1,5 +1,5 @@
 services:
-  stable-diffusion-service:
+  qr-generator:
     image: saladtechnologies/stable-fast-qr-code
     build:
       context: ./

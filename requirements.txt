@@ -13,3 +13,6 @@ triton
 bitsandbytes
 omegaconf
 qrcode[pil]
+fastapi
+pydantic
+uvicorn

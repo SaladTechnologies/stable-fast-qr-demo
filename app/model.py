@@ -72,7 +72,7 @@ def get_git_repo_url():
         return url
     except subprocess.CalledProcessError:
         print("Error fetching repository URL. Are you inside a Git repository?")
-        return "https://salad.com"
+        return "https://salad.com/"
 
 
 def get_qr_control_image(url):
