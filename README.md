@@ -27,6 +27,8 @@ docker compose up
 
 ## Use
 
+Navigate to `http://localhost:1234/` to use the basic UI
+
 ```bash
 curl  -X POST \
   'http://localhost:1234/generate' \

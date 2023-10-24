@@ -198,8 +198,7 @@
           document.getElementById('qrGenerationTime').textContent = 'QR Generation Time: ' + response.headers.get("X-QR-Generation-Time") + ' seconds';
           document.getElementById('imageGenerationTime').textContent = 'Image Generation Time: ' + response.headers.get("X-Image-Generation-Time") + ' seconds';
           document.getElementById('gpu_name').textContent = 'GPU Name: ' + response.headers.get("X-GPU-Name");
-          // vram comes back in bytes, convert to GB, round to 2 decimal places
-          document.getElementById('vram').textContent = 'VRAM: ' + (response.headers.get("X-VRAM") / 1000000000).toFixed(2) + ' GB';
+          document.getElementById('vram').textContent = 'VRAM: ' + (response.headers.get("X-VRAM")).toFixed(2) + ' GB';
           document.getElementById('metadata').style.display = 'block';
 
           // Return blob to process the image

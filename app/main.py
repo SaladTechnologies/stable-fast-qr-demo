@@ -15,7 +15,7 @@ import uvicorn
 import io
 
 gpu_name = torch.cuda.get_device_name(0)
-vram = torch.cuda.get_device_properties(0).total_memory
+vram = torch.cuda.get_device_properties(0).total_memory / (1024**3)
 print(f"Using GPU {gpu_name} with {vram} VRAM", flush=True)
 
 pipe = load()
