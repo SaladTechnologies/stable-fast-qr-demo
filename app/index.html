@@ -94,6 +94,12 @@
     preferences. Once you're ready, click the "Generate Image" button to see your creation!
   </p>
 
+  <!-- Links (Buttons) to docs and code repo -->
+  <p>
+    <a href="/docs">Documentation</a> |
+    <a href="https://github.com/SaladTechnologies/stable-fast-qr-demo">Code Repository</a>
+  </p>
+
   <form id="generateForm">
     <!-- GenerateRequest fields -->
     <label for="url">Data to encode (usually a URL):</label>
@@ -110,14 +116,23 @@
     <input type="range" id="num_inference_steps" name="num_inference_steps" min="10" max="100" value="15">
     <span id="num_inference_steps_display">15</span><br><br>
 
+    <label for="guidance_scale">Guidance Scale (1-15):</label>
+    <input type="range" step="0.1" id="guidance_scale" name="guidance_scale" min="1" max="15" value="4.0">
+    <span id="guidance_scale_display">4.0</span><br><br>
+
     <label for="controlnet_conditioning_scale">Controlnet Conditioning Scale (0.1-10):</label>
     <input type="range" step="0.05" id="controlnet_conditioning_scale" name="controlnet_conditioning_scale" min="0"
       max="2.0" value="1.7">
     <span id="controlnet_conditioning_scale_display">1.7</span><br><br>
 
-    <label for="guidance_scale">Guidance Scale (1-15):</label>
-    <input type="range" step="0.1" id="guidance_scale" name="guidance_scale" min="1" max="15" value="4.0">
-    <span id="guidance_scale_display">4.0</span><br><br>
+    <label for="control_guidance_start">Control Guidance Start (0.0-1.0):</label>
+    <input type="range" step="0.05" id="control_guidance_start" name="control_guidance_start" min="0" max="1.0"
+      value="0.0">
+    <span id="control_guidance_start_display">0.0</span><br><br>
+
+    <label for="control_guidance_end">Control Guidance End (0.0-1.0):</label>
+    <input type="range" step="0.05" id="control_guidance_end" name="control_guidance_end" min="0" max="1.0" value="1.0">
+    <span id="control_guidance_end_display">1.0</span><br><br>
 
     <label for="width">Width (128-1024):</label>
     <input type="range" id="width" name="width" min="128" max="1024" value="512" , step="16">
@@ -154,6 +169,8 @@
     updateValue("guidance_scale");
     updateValue("width");
     updateValue("height");
+    updateValue("control_guidance_start");
+    updateValue("control_guidance_end");
 
     document.getElementById('generateForm').addEventListener('submit', function (e) {
       e.preventDefault();
@@ -170,6 +187,8 @@
         num_inference_steps: parseInt(e.target.num_inference_steps.value),
         controlnet_conditioning_scale: parseFloat(e.target.controlnet_conditioning_scale.value),
         guidance_scale: parseFloat(e.target.guidance_scale.value),
+        control_guidance_start: parseFloat(e.target.control_guidance_start.value),
+        control_guidance_end: parseFloat(e.target.control_guidance_end.value),
         width: parseInt(e.target.width.value),
         height: parseInt(e.target.height.value)
       };
