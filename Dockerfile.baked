@@ -1,0 +1,11 @@
+ARG VERSION=latest
+FROM saladtechnologies/stable-fast-qr-code:${VERSION}
+
+ARG CONTROLNET=122143
+ARG CHECKPOINT=128713
+ENV CIVITAI_CONTROLNET_MODEL=${CONTROLNET}
+ENV CIVITAI_CHECKPOINT_MODEL=${CHECKPOINT}
+
+RUN python -c "from model import load_controlnet_model_from_civitai; load_controlnet_model_from_civitai('${CIVITAI_CONTROLNET_MODEL}', True);"
+RUN python -c "from model import download_checkpoint_from_civitai; download_checkpoint_from_civitai('${CIVITAI_CHECKPOINT_MODEL}');"
+RUN python -c "from model import load_safety_checker; load_safety_checker(True);"

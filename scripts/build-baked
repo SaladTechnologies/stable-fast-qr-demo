@@ -1,0 +1,14 @@
+#! /usr/bin/env bash
+
+PYTHON=$(which python3 || which python)
+VERSION=$($PYTHON -c 'from app.__version__ import VERSION; print(VERSION)')
+
+docker build \
+  -t saladtechnologies/stable-fast-qr-code:latest-baked \
+  -f Dockerfile.baked \
+  --platform linux/amd64 \
+  --output type=docker \
+  --provenance false \
+  --build-arg VERSION=$VERSION \
+  .
+docker tag saladtechnologies/stable-fast-qr-code:latest saladtechnologies/stable-fast-qr-code:$VERSION-baked
