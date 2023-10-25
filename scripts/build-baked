@@ -11,4 +11,4 @@ docker build \
   --provenance false \
   --build-arg VERSION=$VERSION \
   .
-docker tag saladtechnologies/stable-fast-qr-code:latest saladtechnologies/stable-fast-qr-code:$VERSION-baked
+docker tag saladtechnologies/stable-fast-qr-code:latest-baked saladtechnologies/stable-fast-qr-code:$VERSION-baked
