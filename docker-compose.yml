@@ -1,6 +1,6 @@
 services:
   qr-generator:
-    image: saladtechnologies/stable-fast-qr-code
+    image: saladtechnologies/stable-fast-qr-code:latest
     build:
       context: ./
       dockerfile: Dockerfile
