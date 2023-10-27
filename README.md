@@ -54,7 +54,7 @@ This application is configured with environment variables.
 | --- | --- | --- |
 | `PORT` | The port to listen on | `1234` |
 | `HOST` | The host to listen on | `*` |
-| `MODEL_DIR` | The directory to store models in | `./models` |
+| `MODEL_DIR` | The directory to store models in | `/models` |
 | `CIVITAI_CONTROLNET_MODEL` | A model version ID for a controlnet on Civit.ai | `122143` |
 | `CIVITAI_CHECKPOINT_MODEL` | A model version ID for a checkpoint on Civit.ai | `128713` |
 | `IMAGE_SIZE` | The size of the image to generate. This value is locked after start due to `enable_cuda_graph = True` | `512` |
