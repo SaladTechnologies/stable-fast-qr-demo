@@ -57,3 +57,6 @@ This application is configured with environment variables.
 | `MODEL_DIR` | The directory to store models in | `./models` |
 | `CIVITAI_CONTROLNET_MODEL` | A model version ID for a controlnet on Civit.ai | `122143` |
 | `CIVITAI_CHECKPOINT_MODEL` | A model version ID for a checkpoint on Civit.ai | `128713` |
+| `IMAGE_SIZE` | The size of the image to generate. This value is locked after start due to `enable_cuda_graph = True` | `512` |
+| `HF_SAFETY_CHECKER` | The hugging face model ID of the safety checker to load. | `CompVis/stable-diffusion-safety-checker` |
+| `HF_FEATURE_EXTRACTOR` | The hugging face model ID of the feature extractor to load. | `openai/clip-vit-base-patch32` |

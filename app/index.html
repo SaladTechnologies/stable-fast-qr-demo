@@ -64,6 +64,15 @@
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
 
+    #qr_preview {
+      display: none;
+      margin-top: 20px;
+      max-width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
     #metadata {
       display: none;
       background-color: #ffffff;
@@ -79,6 +88,26 @@
 
     #metadata p {
       margin: 5px 0;
+    }
+
+    input[type="color"] {
+      width: 50px;
+      /* Fixed width for color input */
+      height: 50px;
+      border: none;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+
+    select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+      background-color: #ffffff;
+      font-size: 16px;
     }
   </style>
 </head>
@@ -101,9 +130,46 @@
   </p>
 
   <form id="generateForm">
+    <h3> QR Code Settings </h3>
     <!-- GenerateRequest fields -->
     <label for="url">Data to encode (usually a URL):</label>
     <input type="text" id="url" name="url" required><br><br>
+
+    <img id="qr_preview" alt="QR Code Preview" style="margin-top: 20px;">
+
+    <label for="error_correction">Error Correction:</label>
+    <select id="error_correction" name="qr_params.error_correction">
+      <option value="L">L - 7%</option>
+      <option value="M" selected>M - 15%</option>
+      <option value="Q">Q - 25%</option>
+      <option value="H">H - 30%</option>
+    </select><br><br>
+
+    <label for="drawer">Drawer:</label>
+    <select name="drawer" id="drawer">
+      <option value="RoundedModule" selected>RoundedModule</option>
+      <option value="SquareModule">SquareModule</option>
+      <option value="GappedSquareModule">GappedSquareModule</option>
+      <option value="CircleModule">CircleModule</option>
+      <option value="VerticalBars">VerticalBars</option>
+      <option value="HorizontalBars">HorizontalBars</option>
+    </select>
+
+    <label for="color_mask">Choose a color mask:</label>
+    <select id="color_mask" name="color_mask" onchange="updateColorMaskFields()">
+      <option value="SolidFill" selected>SolidFill</option>
+      <option value="RadialGradiant">RadialGradiant</option>
+      <option value="SquareGradiant">SquareGradiant</option>
+      <option value="HorizontalGradiant">HorizontalGradiant</option>
+      <option value="VerticalGradiant">VerticalGradiant</option>
+    </select>
+
+    <div id="color_mask_params"></div>
+
+
+    <hr>
+
+    <h3> Image Settings </h3>
 
     <!-- GenerateParams fields -->
     <label for="prompt">Prompt:</label>
@@ -134,14 +200,6 @@
     <input type="range" step="0.05" id="control_guidance_end" name="control_guidance_end" min="0" max="1.0" value="1.0">
     <span id="control_guidance_end_display">1.0</span><br><br>
 
-    <label for="width">Width (128-1024):</label>
-    <input type="range" id="width" name="width" min="128" max="1024" value="512" , step="16">
-    <span id="width_display">512</span><br><br>
-
-    <label for="height">Height (128-1024):</label>
-    <input type="range" id="height" name="height" min="128" max="1024" value="512" , step="16">
-    <span id="height_display">512</span><br><br>
-
     <input type="submit" value="Generate Image">
   </form>
   <div id="spinner">Generating image...</div>
@@ -167,10 +225,155 @@
     updateValue("num_inference_steps");
     updateValue("controlnet_conditioning_scale");
     updateValue("guidance_scale");
-    updateValue("width");
-    updateValue("height");
     updateValue("control_guidance_start");
     updateValue("control_guidance_end");
+
+    function hexToRgb(hex) {
+      if (hex.length !== 7 || hex[0] !== '#') {
+        throw new Error('Invalid hex color format. Expected format: #RRGGBB');
+      }
+
+      let bigint = parseInt(hex.slice(1), 16);
+      let r = (bigint >> 16) & 255;
+      let g = (bigint >> 8) & 255;
+      let b = bigint & 255;
+
+      return [r, g, b];
+    }
+
+    const urlField = document.getElementById("url");
+    const qrPreview = document.getElementById("qr_preview");
+    const errorCorrection = document.getElementById("error_correction");
+    const drawer = document.getElementById("drawer");
+    const mask = document.getElementById("color_mask");
+    const paramsDiv = document.getElementById("color_mask_params");
+
+
+    const getColorMaskParams = () => {
+      const params = {};
+      switch (mask.value) {
+        case 'SolidFill':
+          params.front_color = hexToRgb(document.querySelector('input[name="front_color"]').value);
+          params.back_color = hexToRgb(document.querySelector('input[name="back_color"]').value);
+          break;
+        case 'RadialGradiant':
+          params.center_color = hexToRgb(document.querySelector('input[name="center_color"]').value);
+          params.back_color = hexToRgb(document.querySelector('input[name="back_color"]').value);
+          params.edge_color = hexToRgb(document.querySelector('input[name="edge_color"]').value);
+          break;
+        case 'SquareGradiant':
+          params.center_color = hexToRgb(document.querySelector('input[name="center_color"]').value);
+          params.back_color = hexToRgb(document.querySelector('input[name="back_color"]').value);
+          params.edge_color = hexToRgb(document.querySelector('input[name="edge_color"]').value);
+          break;
+        case 'HorizontalGradiant':
+          params.left_color = hexToRgb(document.querySelector('input[name="left_color"]').value);
+          params.back_color = hexToRgb(document.querySelector('input[name="back_color"]').value);
+          params.right_color = hexToRgb(document.querySelector('input[name="right_color"]').value);
+          break
+        case 'VerticalGradiant':
+          params.top_color = hexToRgb(document.querySelector('input[name="top_color"]').value);
+          params.back_color = hexToRgb(document.querySelector('input[name="back_color"]').value);
+          params.bottom_color = hexToRgb(document.querySelector('input[name="bottom_color"]').value);
+          break;
+      }
+      return params;
+    }
+
+    // When the url field updates, update the QR code preview
+    const updateQRPreview = () => {
+      const url = urlField.value;
+      if (url.length === 0) {
+        qrPreview.style.display = 'none';
+        return;
+      }
+      qrPreview.style.display = 'block';
+      const error_correction = errorCorrection.value;
+      const drawer_type = drawer.value;
+
+      const params = new URLSearchParams({
+        url,
+        error_correction,
+        drawer: drawer_type,
+        color_mask: mask.value,
+        color_mask_params: JSON.stringify(getColorMaskParams())
+      });
+
+      const urlToPreview = `/qr?${params.toString()}`;
+      console.log(params);
+      console.log(urlToPreview);
+      qrPreview.src = urlToPreview;
+    }
+    urlField.addEventListener('change', updateQRPreview)
+    errorCorrection.addEventListener('change', updateQRPreview)
+    drawer.addEventListener('change', updateQRPreview)
+
+    function updateColorMaskFields() {
+      let fieldsHTML = '';
+
+      switch (mask.value) {
+        case 'SolidFill':
+          fieldsHTML = `
+                <input type="color" name="front_color" value="#000000"> Front Color
+                <input type="color" name="back_color" value="#808080"> Back Color
+            `;
+          paramsDiv.innerHTML = fieldsHTML;
+          document.querySelector('input[name="front_color"]').addEventListener('change', updateQRPreview);
+          document.querySelector('input[name="back_color"]').addEventListener('change', updateQRPreview);
+          break;
+        case 'RadialGradiant':
+          fieldsHTML = `
+                <input type="color" name="center_color" value="#000000"> Center Color
+                <input type="color" name="back_color" value="#808080"> Back Color
+                <input type="color" name="edge_color" value="#0000ff"> Edge Color
+            `;
+          paramsDiv.innerHTML = fieldsHTML;
+          document.querySelector('input[name="center_color"]').addEventListener('change', updateQRPreview);
+          document.querySelector('input[name="back_color"]').addEventListener('change', updateQRPreview);
+          document.querySelector('input[name="edge_color"]').addEventListener('change', updateQRPreview);
+          break;
+        case 'SquareGradiant':
+          fieldsHTML = `
+                <input type="color" name="center_color" value="#000000"> Center Color
+                <input type="color" name="back_color" value="#808080"> Back Color
+                <input type="color" name="edge_color" value="#0000ff"> Edge Color
+            `;
+          paramsDiv.innerHTML = fieldsHTML;
+          document.querySelector('input[name="center_color"]').addEventListener('change', updateQRPreview);
+          document.querySelector('input[name="back_color"]').addEventListener('change', updateQRPreview);
+          document.querySelector('input[name="edge_color"]').addEventListener('change', updateQRPreview);
+          break;
+        case 'HorizontalGradiant':
+          fieldsHTML = `
+                <input type="color" name="left_color" value="#000000"> Left Color
+                <input type="color" name="back_color" value="#808080"> Back Color
+                <input type="color" name="right_color" value="#0000ff"> Right Color
+            `;
+          paramsDiv.innerHTML = fieldsHTML;
+          document.querySelector('input[name="left_color"]').addEventListener('change', updateQRPreview);
+          document.querySelector('input[name="back_color"]').addEventListener('change', updateQRPreview);
+          document.querySelector('input[name="right_color"]').addEventListener('change', updateQRPreview);
+          break;
+        case 'VerticalGradiant':
+          fieldsHTML = `
+                <input type="color" name="top_color" value="#000000"> Top Color
+                <input type="color" name="back_color" value="#808080"> Back Color
+                <input type="color" name="bottom_color" value="#0000ff"> Bottom Color
+            `;
+          paramsDiv.innerHTML = fieldsHTML;
+          document.querySelector('input[name="top_color"]').addEventListener('change', updateQRPreview);
+          document.querySelector('input[name="back_color"]').addEventListener('change', updateQRPreview);
+          document.querySelector('input[name="bottom_color"]').addEventListener('change', updateQRPreview);
+          break;
+      }
+
+
+    }
+
+    updateColorMaskFields();
+    mask.addEventListener('change', updateColorMaskFields);
+    mask.addEventListener('change', updateQRPreview);
+
 
     document.getElementById('generateForm').addEventListener('submit', function (e) {
       e.preventDefault();
@@ -189,14 +392,20 @@
         guidance_scale: parseFloat(e.target.guidance_scale.value),
         control_guidance_start: parseFloat(e.target.control_guidance_start.value),
         control_guidance_end: parseFloat(e.target.control_guidance_end.value),
-        width: parseInt(e.target.width.value),
-        height: parseInt(e.target.height.value)
+      };
+
+      let qr_params = {
+        error_correction: e.target.error_correction.value,
+        drawer: e.target.drawer.value,
+        color_mask: e.target.color_mask.value,
+        color_mask_params: getColorMaskParams()
       };
 
       // Construct the GenerateRequest object
       let requestData = {
         url: e.target.url.value,
-        params: params
+        params,
+        qr_params
       };
 
       // Send the POST request
@@ -217,7 +426,7 @@
           document.getElementById('qrGenerationTime').textContent = 'QR Generation Time: ' + response.headers.get("X-QR-Generation-Time") + ' seconds';
           document.getElementById('imageGenerationTime').textContent = 'Image Generation Time: ' + response.headers.get("X-Image-Generation-Time") + ' seconds';
           document.getElementById('gpu_name').textContent = 'GPU Name: ' + response.headers.get("X-GPU-Name");
-          document.getElementById('vram').textContent = 'VRAM: ' + (response.headers.get("X-VRAM")) + ' GB';
+          document.getElementById('vram').textContent = 'Total VRAM: ' + (response.headers.get("X-Total-VRAM")) + ' GB';
           document.getElementById('metadata').style.display = 'block';
 
           // Return blob to process the image

@@ -3,22 +3,25 @@ import time
 start = time.perf_counter()
 
 import torch
-from model import load, get_qr_control_image
+from model import load, get_qr_control_image, image_size
 import os
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse, FileResponse
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, field_validator, ValidationInfo
+from typing import Optional, Literal, Union
+import json
 import uvicorn
 import io
 
 gpu_name = torch.cuda.get_device_name(0)
 vram = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-print(f"Using GPU {gpu_name} with {vram} VRAM", flush=True)
+vram = round(vram, 2)
+print(f"Using GPU {gpu_name} with {vram} gb VRAM", flush=True)
 
 pipe = load()
+# pipe = None
 print(f"Total startup time: {time.perf_counter() - start}s", flush=True)
 
 host = os.getenv("HOST", "*")
@@ -50,27 +53,154 @@ class GenerateParams(BaseModel):
     control_guidance_start: float = 0.0
     control_guidance_end: float = 1.0
     seed: Optional[int] = None
-    width: int = 512
-    height: int = 512
+
+
+def parse_color_str(v: Union[str, tuple[int, int, int]]) -> tuple[int, int, int]:
+    if isinstance(v, str):
+        return tuple(int(x) for x in v.split(","))
+    return v
+
+
+class SolidFillParams(BaseModel):
+    front_color: Union[str, tuple[int, int, int]] = (0, 0, 0)
+    back_color: Union[str, tuple[int, int, int]] = (128, 128, 128)
+
+    @field_validator("back_color", "front_color", mode="before")
+    def parse_color(cls, v: Union[str, tuple[int, int, int]]) -> tuple[int, int, int]:
+        return parse_color_str(v)
+
+
+class RadialGradiantParams(BaseModel):
+    center_color: Union[str, tuple[int, int, int]] = (0, 0, 0)
+    back_color: Union[str, tuple[int, int, int]] = (128, 128, 128)
+    edge_color: Union[str, tuple[int, int, int]] = (0, 0, 255)
+
+    @field_validator("back_color", "center_color", "edge_color", mode="before")
+    def parse_color(cls, v: Union[str, tuple[int, int, int]]) -> tuple[int, int, int]:
+        return parse_color_str(v)
+
+
+class SquareGradiantParams(BaseModel):
+    center_color: Union[str, tuple[int, int, int]] = (0, 0, 0)
+    back_color: Union[str, tuple[int, int, int]] = (128, 128, 128)
+    edge_color: Union[str, tuple[int, int, int]] = (0, 0, 255)
+
+    @field_validator("back_color", "center_color", "edge_color", mode="before")
+    def parse_color(cls, v: Union[str, tuple[int, int, int]]) -> tuple[int, int, int]:
+        return parse_color_str(v)
+
+
+class HorizontalGradiantParams(BaseModel):
+    left_color: Union[str, tuple[int, int, int]] = (0, 0, 0)
+    back_color: Union[str, tuple[int, int, int]] = (128, 128, 128)
+    right_color: Union[str, tuple[int, int, int]] = (0, 0, 255)
+
+    @field_validator("back_color", "left_color", "right_color", mode="before")
+    def parse_color(cls, v: Union[str, tuple[int, int, int]]) -> tuple[int, int, int]:
+        return parse_color_str(v)
+
+
+class VerticalGradiantParams(BaseModel):
+    top_color: Union[str, tuple[int, int, int]] = (0, 0, 0)
+    back_color: Union[str, tuple[int, int, int]] = (128, 128, 128)
+    bottom_color: Union[str, tuple[int, int, int]] = (0, 0, 255)
+
+    @field_validator("back_color", "top_color", "bottom_color", mode="before")
+    def parse_color(cls, v: Union[str, tuple[int, int, int]]) -> tuple[int, int, int]:
+        return parse_color_str(v)
+
+
+class QRParams(BaseModel):
+    error_correction: Literal["L", "M", "Q", "H"] = "M"
+    drawer: Literal[
+        "RoundedModule",
+        "SquareModule",
+        "GappedSquareModule",
+        "CircleModule",
+        "VerticalBars",
+        "HorizontalBars",
+    ] = "RoundedModule"
+    color_mask: Optional[
+        Literal[
+            "SolidFill",
+            "RadialGradiant",
+            "SquareGradiant",
+            "HorizontalGradiant",
+            "VerticalGradiant",
+        ]
+    ] = "SolidFill"
+    color_mask_params: Union[
+        str,
+        SolidFillParams,
+        RadialGradiantParams,
+        SquareGradiantParams,
+        HorizontalGradiantParams,
+        VerticalGradiantParams,
+    ] = "ppppppp"
+
+    @field_validator("color_mask_params", mode="before")
+    @classmethod
+    def parse_color_mask_params(
+        cls,
+        v: Union[
+            str,
+            SolidFillParams,
+            RadialGradiantParams,
+            SquareGradiantParams,
+            HorizontalGradiantParams,
+            VerticalGradiantParams,
+        ],
+        info: ValidationInfo,
+    ) -> Union[
+        SolidFillParams,
+        RadialGradiantParams,
+        SquareGradiantParams,
+        HorizontalGradiantParams,
+        VerticalGradiantParams,
+    ]:
+        if isinstance(v, str):
+            v = json.loads(v)
+        mask = info.data["color_mask"]
+        if mask == "SolidFill":
+            return SolidFillParams(**v)
+        elif mask == "RadialGradiant":
+            return RadialGradiantParams(**v)
+        elif mask == "SquareGradiant":
+            return SquareGradiantParams(**v)
+        elif mask == "HorizontalGradiant":
+            return HorizontalGradiantParams(**v)
+        elif mask == "VerticalGradiant":
+            return VerticalGradiantParams(**v)
+        else:
+            raise ValueError(f"Invalid color mask {mask}")
 
 
 class GenerateRequest(BaseModel):
     url: str
     params: GenerateParams
+    qr_params: QRParams
+
+
+class PreviewRequest(QRParams):
+    url: str
 
 
 @app.post("/generate")
-async def generate(request: GenerateRequest):
+async def generate(request: Request):
+    request = GenerateRequest(**await request.json())
     start = time.perf_counter()
     url = request.url
     params = request.params
-    qr = get_qr_control_image(url, size=params.width)
+    qr_params = request.qr_params.model_dump()
+    qr = get_qr_control_image(url, size=image_size, **qr_params)
     qr_gen = time.perf_counter() - start
     config = params.model_dump()
     if "seed" in config and config["seed"] is not None:
         config["generator"] = torch.Generator("cuda").manual_seed(config["seed"])
     del config["seed"]
     config["image"] = qr
+    config["width"] = image_size
+    config["height"] = image_size
     image = pipe(**config).images[0]
     image_gen = time.perf_counter() - start - qr_gen
     image_bytes = io.BytesIO()
@@ -86,15 +216,17 @@ async def generate(request: GenerateRequest):
             "X-QR-Generation-Time": str(qr_gen),
             "X-Image-Generation-Time": str(image_gen),
             "X-GPU-Name": gpu_name,
-            "X-VRAM": str(vram),
+            "X-Total-VRAM": str(vram),
         },
     )
 
 
 # use like get /qr?url=something. returns an image
 @app.get("/qr")
-async def get_qr(url: str, size: int = 512):
-    qr = get_qr_control_image(url, size=size)
+async def get_qr(request: Request):
+    # Get query string as a dict
+    opts = PreviewRequest(**dict(request.query_params)).model_dump()
+    qr = get_qr_control_image(**opts)
     qr_bytes = io.BytesIO()
     qr.save(qr_bytes, format="png")
     qr_bytes.seek(0)

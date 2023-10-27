@@ -19,7 +19,8 @@ from sfast.compilers.stable_diffusion_pipeline_compiler import (
 )
 import qrcode
 from qrcode.image.styledpil import StyledPilImage
-from qrcode.image.styles.moduledrawers.pil import RoundedModuleDrawer
+import qrcode.image.styles.moduledrawers.pil as module_drawers
+from qrcode.image.styles import colormasks
 
 torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -43,11 +44,13 @@ civitai_base_url = "https://civitai.com/api/v1/model-versions/"
 safety_checker_model = os.getenv(
     "HF_SAFETY_CHECKER", "CompVis/stable-diffusion-safety-checker"
 )
-feature_extractor_model = os.getenv("HF_CLIP_MODEL", "openai/clip-vit-base-patch32")
+feature_extractor_model = os.getenv(
+    "HF_FEATURE_EXTRACTOR", "openai/clip-vit-base-patch32"
+)
 model_dir = os.getenv("MODEL_DIR", "/models")
 controlnet_dir = os.path.join(model_dir, "controlnet")
 checkpoint_dir = os.path.join(model_dir, "checkpoints")
-output_dir = os.getenv("OUTPUT_DIR", "/output")
+image_size = int(os.getenv("IMAGE_SIZE", "512"))
 # QR Code Monster
 civitai_controlnet_model = os.getenv("CIVITAI_CONTROLNET_MODEL", "122143")
 
@@ -74,16 +77,63 @@ def get_git_repo_url():
         return "https://salad.com/"
 
 
-def get_qr_control_image(url, size=512):
-    qr = qrcode.QRCode(
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-    )
+color_mask_defaults = {
+    "SolidFill": {"front_color": (0, 0, 0), "back_color": (128, 128, 128)},
+    "RadialGradiant": {
+        "center_color": (0, 0, 0),
+        "back_color": (128, 128, 128),
+        "edge_color": (0, 0, 255),
+    },
+    "SquareGradiant": {
+        "center_color": (0, 0, 0),
+        "back_color": (128, 128, 128),
+        "edge_color": (0, 0, 255),
+    },
+    "HorizontalGradiant": {
+        "left_color": (0, 0, 0),
+        "back_color": (128, 128, 128),
+        "right_color": (0, 0, 255),
+    },
+    "VerticalGradiant": {
+        "top_color": (0, 0, 0),
+        "back_color": (128, 128, 128),
+        "bottom_color": (0, 0, 255),
+    },
+}
+
+
+def get_qr_control_image(
+    url,
+    size=image_size,
+    error_correction="M",
+    drawer="RoundedModule",
+    color_mask="SolidFill",
+    color_mask_params=None,
+):
+    error_corrector = getattr(qrcode.constants, f"ERROR_CORRECT_{error_correction}")
+    module_drawer = getattr(module_drawers, f"{drawer}Drawer")
+    if color_mask is not None:
+        mask = getattr(colormasks, f"{color_mask}ColorMask")
+        if color_mask_params is None:
+            color_mask_params = color_mask_defaults[color_mask]
+        else:
+            color_mask_params = {**color_mask_defaults[color_mask], **color_mask_params}
+        mask = mask(**color_mask_params)
+    else:
+        mask = None
+
+    make_image_params = {
+        "image_factory": StyledPilImage,
+        "module_drawer": module_drawer(),
+    }
+    if mask is not None:
+        make_image_params["color_mask"] = mask
+
+    qr = qrcode.QRCode(error_correction=error_corrector)
     qr.add_data(url)
+    qr.make(fit=True)
     img = qr.make_image(
-        image_factory=StyledPilImage,
-        module_drawer=RoundedModuleDrawer(),
-        fill_color=(0, 0, 0),
-        back_color=(128, 128, 128),
+        **make_image_params,
     )
     return img.resize((size, size))
 
@@ -94,8 +144,8 @@ my_repo_qr = get_qr_control_image(my_repository_url)
 
 warmup_config = {
     "prompt": "Painterly dreamscape, clouds, mystical",
-    "width": 512,
-    "height": 512,
+    "width": image_size,
+    "height": image_size,
     "image": my_repo_qr,
     "num_inference_steps": 15,
     "controlnet_conditioning_scale": 1.6,
