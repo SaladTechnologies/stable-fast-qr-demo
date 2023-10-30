@@ -17,10 +17,8 @@ from sfast.compilers.stable_diffusion_pipeline_compiler import (
     compile,
     CompilationConfig,
 )
-import qrcode
-from qrcode.image.styledpil import StyledPilImage
-import qrcode.image.styles.moduledrawers.pil as module_drawers
-from qrcode.image.styles import colormasks
+from qr import image_size, get_qr_control_image
+from util import get_git_repo_url
 
 torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -50,7 +48,6 @@ feature_extractor_model = os.getenv(
 model_dir = os.getenv("MODEL_DIR", "/models")
 controlnet_dir = os.path.join(model_dir, "controlnet")
 checkpoint_dir = os.path.join(model_dir, "checkpoints")
-image_size = int(os.getenv("IMAGE_SIZE", "512"))
 # QR Code Monster
 civitai_controlnet_model = os.getenv("CIVITAI_CONTROLNET_MODEL", "122143")
 
@@ -62,80 +59,6 @@ civitai_checkpoint_model = os.getenv("CIVITAI_CHECKPOINT_MODEL", "128713")
 os.makedirs(model_dir, exist_ok=True)
 os.makedirs(controlnet_dir, exist_ok=True)
 os.makedirs(checkpoint_dir, exist_ok=True)
-
-
-def get_git_repo_url():
-    try:
-        url = (
-            subprocess.check_output(["git", "config", "--get", "remote.origin.url"])
-            .decode("utf-8")
-            .strip()
-        )
-        return url
-    except subprocess.CalledProcessError:
-        print("Error fetching repository URL. Are you inside a Git repository?")
-        return "https://salad.com/"
-
-
-color_mask_defaults = {
-    "SolidFill": {"front_color": (0, 0, 0), "back_color": (128, 128, 128)},
-    "RadialGradiant": {
-        "center_color": (0, 0, 0),
-        "back_color": (128, 128, 128),
-        "edge_color": (0, 0, 255),
-    },
-    "SquareGradiant": {
-        "center_color": (0, 0, 0),
-        "back_color": (128, 128, 128),
-        "edge_color": (0, 0, 255),
-    },
-    "HorizontalGradiant": {
-        "left_color": (0, 0, 0),
-        "back_color": (128, 128, 128),
-        "right_color": (0, 0, 255),
-    },
-    "VerticalGradiant": {
-        "top_color": (0, 0, 0),
-        "back_color": (128, 128, 128),
-        "bottom_color": (0, 0, 255),
-    },
-}
-
-
-def get_qr_control_image(
-    url,
-    size=image_size,
-    error_correction="M",
-    drawer="RoundedModule",
-    color_mask="SolidFill",
-    color_mask_params=None,
-):
-    error_corrector = getattr(qrcode.constants, f"ERROR_CORRECT_{error_correction}")
-    module_drawer = getattr(module_drawers, f"{drawer}Drawer")
-    if color_mask is not None:
-        mask = getattr(colormasks, f"{color_mask}ColorMask")
-        if color_mask_params is None:
-            color_mask_params = color_mask_defaults[color_mask]
-        else:
-            color_mask_params = {**color_mask_defaults[color_mask], **color_mask_params}
-        mask = mask(**color_mask_params)
-    else:
-        mask = None
-
-    make_image_params = {
-        "image_factory": StyledPilImage,
-        "module_drawer": module_drawer(),
-    }
-    if mask is not None:
-        make_image_params["color_mask"] = mask
-
-    qr = qrcode.QRCode(error_correction=error_corrector)
-    qr.add_data(url)
-    qr.make(fit=True)
-    img = qr.make_image(
-        **make_image_params,
-    )
-    return img.resize((size, size))
 
 
 my_repository_url = get_git_repo_url()
@@ -150,7 +73,7 @@ warmup_config = {
     "num_inference_steps": 15,
     "controlnet_conditioning_scale": 1.6,
     "guidance_scale": 5.0,
-    "control_guidance_start": 0.5,
+    "control_guidance_start": 0.0,
 }
 
 

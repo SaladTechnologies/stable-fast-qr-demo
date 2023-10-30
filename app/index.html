@@ -200,7 +200,16 @@
     <input type="range" step="0.05" id="control_guidance_end" name="control_guidance_end" min="0" max="1.0" value="1.0">
     <span id="control_guidance_end_display">1.0</span><br><br>
 
-    <input type="submit" value="Generate Image">
+    <!-- Submit button, next to a checkbox for "validate" -->
+    <div>
+      <input type="submit" value="Generate Image">
+      <label>
+        <input type="checkbox" name="validate" id="validateCode"> Validate
+      </label>
+    </div>
+
+
+
   </form>
   <div id="spinner">Generating image...</div>
   <img id="resultImage" alt="Generated Image" style="margin-top: 20px;">
@@ -209,8 +218,11 @@
     <p id="gpu_name"></p>
     <p id="vram"></p>
     <p id="totalTime"></p>
+    <p id="totalCost"></p>
     <p id="qrGenerationTime"></p>
     <p id="imageGenerationTime"></p>
+    <p id="validationTime"></p>
+    <p id="qrValid"></p>
   </div>
 
   <script>
@@ -408,8 +420,15 @@
         qr_params
       };
 
+      const validateCode = document.getElementById("validateCode").checked;
+
+      let url = "/generate";
+      if (validateCode) {
+        url += "?validate=true"
+      }
+
       // Send the POST request
-      fetch('/generate', {
+      fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -418,15 +437,35 @@
       })
         .then(response => {
           // Extract headers and display them
-          let totalTime = response.headers.get('X-Total-Time');
-          let qrGenTime = response.headers.get('X-QR-Generation-Time');
-          let imgGenTime = response.headers.get('X-Image-Generation-Time');
+          const totalTime = parseFloat(response.headers.get('X-Total-Time'));
+          const qrGenTime = parseFloat(response.headers.get('X-QR-Generation-Time'));
+          const imgGenTime = parseFloat(response.headers.get('X-Image-Generation-Time'));
+          const gpuName = response.headers.get('X-GPU-Name');
+          const totalVRAM = parseFloat(response.headers.get('X-Total-VRAM'));
+          const totalCost = parseFloat(response.headers.get('X-Total-Cost'));
+          
 
-          document.getElementById('totalTime').textContent = 'Total Time: ' + response.headers.get("X-Total-Time") + ' seconds';
-          document.getElementById('qrGenerationTime').textContent = 'QR Generation Time: ' + response.headers.get("X-QR-Generation-Time") + ' seconds';
-          document.getElementById('imageGenerationTime').textContent = 'Image Generation Time: ' + response.headers.get("X-Image-Generation-Time") + ' seconds';
-          document.getElementById('gpu_name').textContent = 'GPU Name: ' + response.headers.get("X-GPU-Name");
-          document.getElementById('vram').textContent = 'Total VRAM: ' + (response.headers.get("X-Total-VRAM")) + ' GB';
+          document.getElementById('totalTime').textContent = `Total Time: ${totalTime.toFixed(5)} seconds`;
+          document.getElementById('qrGenerationTime').textContent = `QR Generation Time: ${qrGenTime.toFixed(5)} seconds`;
+          document.getElementById('imageGenerationTime').textContent = `Image Generation Time: ${imgGenTime.toFixed(5)} seconds`;
+          document.getElementById('gpu_name').textContent = `GPU: ${gpuName}`;
+          document.getElementById('vram').textContent = `VRAM: ${totalVRAM.toFixed(2)} GB`;
+          document.getElementById('totalCost').textContent = `Total Cost: $${totalCost.toFixed(5)}`;
+
+          if (validateCode) {
+            const isValid = response.headers.get('X-QR-Valid').toLowerCase() === 'true';
+            const validationTime = parseFloat(response.headers.get('X-Validation-Time'));
+            let msg = "<p>Scans As: ";
+            if (isValid) {
+              const data = response.headers.get('X-QR-Data');
+              msg += `${data}</p>`
+            } else {
+              msg += "<b><i>invalid</i></b></p>"
+            }
+            document.getElementById("qrValid").innerHTML = msg;
+            document.getElementById('validationTime').textContent = `Validation Time: ${validationTime.toFixed(5)} seconds`;
+          }
+
           document.getElementById('metadata').style.display = 'block';
 
           // Return blob to process the image

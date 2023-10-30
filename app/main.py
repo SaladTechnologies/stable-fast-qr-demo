@@ -3,21 +3,21 @@ import time
 start = time.perf_counter()
 
 import torch
-from model import load, get_qr_control_image, image_size
+from model import load
+from qr import get_qr_control_image, image_size, detect_qr_code
 import os
 from pathlib import Path
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse, FileResponse
-from pydantic import BaseModel, field_validator, ValidationInfo
+from pydantic import BaseModel, field_validator, ValidationInfo, ValidationError
 from typing import Optional, Literal, Union
 import json
 import uvicorn
 import io
+from util import get_gpu_info
 
-gpu_name = torch.cuda.get_device_name(0)
-vram = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-vram = round(vram, 2)
+gpu_name, vram, cost_per_second = get_gpu_info()
 print(f"Using GPU {gpu_name} with {vram} gb VRAM", flush=True)
 
 pipe = load()
@@ -136,7 +136,7 @@ class QRParams(BaseModel):
         SquareGradiantParams,
         HorizontalGradiantParams,
         VerticalGradiantParams,
-    ] = "ppppppp"
+    ]
 
     @field_validator("color_mask_params", mode="before")
     @classmethod
@@ -187,7 +187,12 @@ class PreviewRequest(QRParams):
 
 @app.post("/generate")
 async def generate(request: Request):
-    request = GenerateRequest(**await request.json())
+    query_params = dict(request.query_params)
+    try:
+        request = GenerateRequest(**await request.json())
+    except ValidationError as e:
+        return Response(json.dumps(e.errors()), status_code=400)
+    validate = query_params.get("validate", "false").lower() == "true"
     start = time.perf_counter()
     url = request.url
     params = request.params
@@ -206,18 +211,29 @@ async def generate(request: Request):
     image_bytes = io.BytesIO()
     image.save(image_bytes, format="png")
     image_bytes.seek(0)
+    headers = {
+        "X-QR-Generation-Time": str(qr_gen),
+        "X-Image-Generation-Time": str(image_gen),
+        "X-GPU-Name": gpu_name,
+        "X-Total-VRAM": str(vram),
+    }
+    if validate:
+        validate_start = time.perf_counter()
+        qr_code = detect_qr_code(image)
+        if qr_code is None:
+            headers["X-QR-Valid"] = "False"
+        else:
+            headers["X-QR-Valid"] = "True"
+            headers["X-QR-Data"] = qr_code
+        headers["X-Validation-Time"] = str(time.perf_counter() - validate_start)
     total_time = time.perf_counter() - start
+    headers["X-Total-Time"] = str(total_time)
+    headers["X-Total-Cost"] = str(cost_per_second * total_time)
 
     return StreamingResponse(
         image_bytes,
         media_type="image/png",
-        headers={
-            "X-Total-Time": str(total_time),
-            "X-QR-Generation-Time": str(qr_gen),
-            "X-Image-Generation-Time": str(image_gen),
-            "X-GPU-Name": gpu_name,
-            "X-Total-VRAM": str(vram),
-        },
+        headers=headers,
     )
 
 

@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install --no-install-recommends --no-install-sugge
   libglib2.0-0 \
   build-essential \
   libgoogle-perftools-dev \
-  wget
+  wget \
+  libzbar0
 
 # We need the latest pip
 RUN pip install --upgrade --no-cache-dir pip
