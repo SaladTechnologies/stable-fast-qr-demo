@@ -42,6 +42,15 @@ curl  -X POST \
     "control_guidance_start": 0.0,
     "control_guidance_end": 0.9,
     "num_inference_steps": 15
+  },
+  "qr_params": {
+    "error_correction": "M",
+    "drawer": "RoundedModule",
+    "color_mask": "SolidFill",
+    "color_mask_params": {
+      "front_color": [0,0,0],
+      "back_color": [127,127,127]
+    }
   }
 }' > qr.png
 ```
