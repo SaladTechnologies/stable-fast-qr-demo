@@ -6,7 +6,7 @@ A demo of using [stable-fast](https://github.com/chengzeyi/stable-fast) to gener
 ## Prebuilt Docker Image
 
 ```
-saladtechnologies/stable-fast-qr-demo:latest
+saladtechnologies/stable-fast-qr-code:latest
 ```
 
 ## Docs
