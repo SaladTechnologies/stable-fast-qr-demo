@@ -76,8 +76,14 @@ warmup_config = {
     "control_guidance_start": 0.0,
 }
 
+safety_checker = None
+feature_extractor = None
+
 
 def load_safety_checker(load_only=False):
+    global safety_checker, feature_extractor
+    if safety_checker is not None and feature_extractor is not None:
+        return safety_checker, feature_extractor
     print("Loading safety checker...", flush=True)
     start = time.perf_counter()
     safety_checker = StableDiffusionSafetyChecker.from_pretrained(
@@ -194,6 +200,7 @@ def load_controlnet_pipeline(
     pipeline.text_encoder.eval()
     pipeline.unet.eval()
     pipeline.controlnet.eval()
+    pipeline.vae.eval()
     pipeline = compile(pipeline, compile_config)
 
     pipeline(**warmup_config).images[0]

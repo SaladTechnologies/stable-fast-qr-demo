@@ -3,7 +3,7 @@ import time
 start = time.perf_counter()
 
 import torch
-from model import load
+from model import load, load_safety_checker
 from qr import get_qr_control_image, image_size, detect_qr_code
 import os
 from pathlib import Path
@@ -16,6 +16,7 @@ import json
 import uvicorn
 import io
 from util import get_gpu_info
+import base64
 
 gpu_name, vram, cost_per_second = get_gpu_info()
 print(f"Using GPU {gpu_name} with {vram} gb VRAM", flush=True)
@@ -179,6 +180,8 @@ class GenerateRequest(BaseModel):
     url: str
     params: GenerateParams
     qr_params: QRParams
+    batch_size: Optional[int] = 1
+    safety_checker: Optional[bool] = True
 
 
 class PreviewRequest(QRParams):
@@ -206,35 +209,61 @@ async def generate(request: Request):
     config["image"] = qr
     config["width"] = image_size
     config["height"] = image_size
-    image = pipe(**config).images[0]
+    config["num_images_per_prompt"] = request.batch_size
+    if request.safety_checker:
+        safety_checker, feature_extractor = load_safety_checker()
+        pipe.safety_checker = safety_checker
+        pipe.feature_extractor = feature_extractor
+    else:
+        pipe.safety_checker = None
+        pipe.feature_extractor = None
+
+    images = pipe(**config).images
     image_gen = time.perf_counter() - start - qr_gen
-    image_bytes = io.BytesIO()
-    image.save(image_bytes, format="png")
-    image_bytes.seek(0)
     headers = {
         "X-QR-Generation-Time": str(qr_gen),
         "X-Image-Generation-Time": str(image_gen),
         "X-GPU-Name": gpu_name,
         "X-Total-VRAM": str(vram),
     }
-    if validate:
-        validate_start = time.perf_counter()
-        qr_code = detect_qr_code(image)
-        if qr_code is None:
-            headers["X-QR-Valid"] = "False"
-        else:
-            headers["X-QR-Valid"] = "True"
-            headers["X-QR-Data"] = qr_code
-        headers["X-Validation-Time"] = str(time.perf_counter() - validate_start)
+    processed_images = []
+    for i, image in enumerate(images):
+        image_bytes = io.BytesIO()
+        image.save(image_bytes, format="jpeg")
+        image_bytes.seek(0)
+        processed_images.append(image_bytes)
+        if validate:
+            validate_start = time.perf_counter()
+            qr_code = detect_qr_code(image)
+            if qr_code is None:
+                headers[f"X-QR-Valid-{i}"] = "False"
+            else:
+                headers[f"X-QR-Valid-{i}"] = "True"
+                headers[f"X-QR-Data-{i}"] = qr_code
+            headers[f"X-Validation-Time-{i}"] = str(
+                time.perf_counter() - validate_start
+            )
     total_time = time.perf_counter() - start
     headers["X-Total-Time"] = str(total_time)
     headers["X-Total-Cost"] = str(cost_per_second * total_time)
 
-    return StreamingResponse(
-        image_bytes,
-        media_type="image/png",
-        headers=headers,
-    )
+    if len(processed_images) == 1:
+        return StreamingResponse(
+            processed_images[0],
+            media_type="image/jpeg",
+            headers=headers,
+        )
+    else:
+        # convert all the images to base64
+        processed_images = [
+            base64.b64encode(image.read()).decode("utf-8") for image in processed_images
+        ]
+
+        return Response(
+            content=json.dumps({"images": processed_images}),
+            media_type="applikcation/json",
+            headers=headers,
+        )
 
 
 # use like get /qr?url=something. returns an image
@@ -244,11 +273,11 @@ async def get_qr(request: Request):
     opts = PreviewRequest(**dict(request.query_params)).model_dump()
     qr = get_qr_control_image(**opts)
     qr_bytes = io.BytesIO()
-    qr.save(qr_bytes, format="png")
+    qr.save(qr_bytes, format="jpeg")
     qr_bytes.seek(0)
     return StreamingResponse(
         qr_bytes,
-        media_type="image/png",
+        media_type="image/jpeg",
     )
 
 

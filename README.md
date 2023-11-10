@@ -1,7 +1,7 @@
 # stable-fast-qr-demo
 A demo of using [stable-fast](https://github.com/chengzeyi/stable-fast) to generate qr codes
 
-![](./qr.png)
+![](./qr.jpg)
 
 ## Prebuilt Docker Image
 
@@ -52,7 +52,7 @@ curl  -X POST \
       "back_color": [127,127,127]
     }
   }
-}' > qr.png
+}' > qr.jpg
 ```
 
 ## Configure

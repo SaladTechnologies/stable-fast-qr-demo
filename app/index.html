@@ -453,11 +453,11 @@
           document.getElementById('totalCost').textContent = `Total Cost: $${totalCost.toFixed(5)}`;
 
           if (validateCode) {
-            const isValid = response.headers.get('X-QR-Valid').toLowerCase() === 'true';
-            const validationTime = parseFloat(response.headers.get('X-Validation-Time'));
+            const isValid = response.headers.get('X-QR-Valid-0').toLowerCase() === 'true';
+            const validationTime = parseFloat(response.headers.get('X-Validation-Time-0'));
             let msg = "<p>Scans As: ";
             if (isValid) {
-              const data = response.headers.get('X-QR-Data');
+              const data = response.headers.get('X-QR-Data-0');
               msg += `${data}</p>`
             } else {
               msg += "<b><i>invalid</i></b></p>"
